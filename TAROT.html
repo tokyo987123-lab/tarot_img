@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>流衍塔羅 - 專業直覺占卜桌</title>
+    
+    <!-- iOS Web App 核心設定 -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="流衍塔羅">
+    
+    <!-- App 圖示：直接讀取你 GitHub 的大阿爾克那 0 號愚者牌 -->
+    <link rel="apple-touch-icon" href="https://tokyo987123-lab.github.io/tarot_img/TAROT/MAJOR_0.jpg">
+
+    <!-- 引入前端排版與圖標 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Noto+Serif+TC:wght@400;600&display=swap');
+        
+        body {
+            font-family: 'Noto Serif TC', serif;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            -webkit-tap-highlight-color: transparent;
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        .font-cinzel { font-family: 'Cinzel', serif; }
+        
+        /* 滾動條美化 */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+        /* 3D 翻牌動畫 */
+        .card-container { perspective: 1000px; }
+        .card-inner {
+            transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+            transform-style: preserve-3d;
+        }
+        .card-inner.flipped { transform: rotateY(180deg); }
+        .card-front, .card-back { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+        .card-front { transform: rotateY(180deg); }
+        
+        /* 逆位牌：旋轉 180 度 */
+        .reversed-card { transform: rotateY(180deg) rotate(180deg) !important; }
+        
+        /* 蓋牌切牌效果 */
+        .deck-card {
+            transition: all 0.2s ease;
+            background: linear-gradient(135deg, #ae914e 0%, #7d6428 100%);
+        }
+        .deck-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 8px 16px rgba(125, 100, 40, 0.2);
+        }
+    </style>
+</head>
+<body class="text-gray-800 min-h-screen flex flex-col justify-between">
+
+    <!-- 明亮高質感頁首 -->
+    <header class="text-center pt-8 pb-4 px-4 select-none">
+        <h1 class="font-cinzel text-3xl md:text-4xl font-bold tracking-widest text-[#7d6428]">TAROT SANCTUARY</h1>
+        <p class="text-xs text-gray-500 mt-1 tracking-wider font-medium">完整 78 張維特經典真跡 • 專業直覺占卜桌</p>
+    </header>
+
+    <!-- 主操作區 -->
+    <main class="max-w-7xl mx-auto w-full flex-grow px-4 flex flex-col gap-6">
+        
+        <!-- 核心控制面板 -->
+        <section class="bg-white p-4 rounded-xl border border-gray-200 flex flex-col sm:flex-row gap-4 items-center justify-between shadow-sm">
+            <div class="flex items-center gap-3 w-full sm:w-auto">
+                <span class="text-[#7d6428] text-sm font-bold whitespace-nowrap"><i class="fa-solid fa-layer-group mr-1"></i>設定牌陣:</span>
+                <select id="spreadSelect" class="bg-gray-50 border border-gray-300 text-gray-700 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-[#ae914e] w-full sm:w-60 cursor-pointer font-medium">
+                    <option value="1">每日指引 (1張)</option>
+                    <option value="3">時間流 (3張：過去/現在/未來)</option>
+                    <option value="5">五張元素流 (5張：現狀/阻礙/潛意識/影響/結果)</option>
+                    <option value="10">凱爾特十字 (10張：完整深度解析)</option>
+                </select>
+            </div>
+            
+            <div class="flex gap-2 w-full sm:w-auto">
+                <button id="shuffleBtn" class="flex-1 sm:flex-none bg-gradient-to-r from-[#ae914e] to-[#7d6428] text-white font-bold text-sm px-6 py-2.5 rounded-lg transition-all shadow-md active:scale-95 hover:opacity-90">
+                    <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> 靜心洗牌
+                </button>
+                <button id="resetBtn" class="bg-gray-100 border border-gray-300 text-gray-600 hover:text-[#7d6428] text-sm px-4 py-2.5 rounded-lg transition-all active:scale-95">
+                    <i class="fa-solid fa-rotate-right"></i>
+                </button>
+            </div>
+        </section>
+
+        <!-- 虛擬實體牌桌 (洗牌後的蓋牌堆) -->
+        <section class="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+            <div class="flex justify-between items-center mb-2 px-2">
+                <h2 class="text-xs font-bold tracking-wider text-gray-500 uppercase"><i class="fa-solid fa-ellipsis-vertical text-[#ae914e] mr-1"></i> 靜心切牌桌 (請憑直覺抽取)</h2>
+                <span id="deckCounter" class="text-xs text-gray-400 font-medium">尚未洗牌</span>
+            </div>
+            
+            <!-- 水平捲動的蓋牌堆 -->
+            <div id="deckArea" class="flex gap-2 overflow-x-auto py-4 px-2 min-h-[140px] items-center bg-gray-50 rounded-lg border border-gray-200">
+                <div class="text-sm text-gray-400 mx-auto py-4 font-medium flex items-center gap-2">
+                    <i class="fa-solid fa-hourglass text-[#ae914e]"></i> 請先在心中默想問題，並按下「靜心洗牌」開啟能量場
+                </div>
+            </div>
+        </section>
+
+        <!-- 占卜陣位與開牌結果區 -->
+        <section class="flex-grow flex flex-col">
+            <h2 class="text-xs font-bold tracking-wider text-gray-500 uppercase mb-3 px-2"><i class="fa-solid fa-star-of-david text-[#ae914e] mr-1"></i> 占卜陣位結果</h2>
+            <div id="spreadArea" class="flex flex-wrap justify-center gap-6 md:gap-8 bg-white p-6 md:p-8 rounded-xl border border-gray-200 shadow-sm min-h-[360px] items-center">
+                <div class="text-sm text-gray-400 font-medium">尚未配置牌陣，請先進行洗牌。</div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="text-center text-[10px] text-gray-400 font-cinzel tracking-widest py-6 select-none">
+        &copy; 2026 TAROT SANCTUARY. ALL RIGHTS RESERVED.
+    </footer>
+
+    <!-- 自有 GitHub 絕對路徑真跡庫 -->
+    <script>
+        const imgBase = "https://tokyo987123-lab.github.io/tarot_img/TAROT/";
+
+        const tarotDeckData = [
+            // 大阿爾克那 (MAJOR_0 到 MAJOR_21)
+            { id: 0, name: "愚者", img: imgBase + "MAJOR_0.jpg" },
+            { id: 1, name: "魔術師", img: imgBase + "MAJOR_1.jpg" },
+            { id: 2, name: "女祭司", img: imgBase + "MAJOR_2.jpg" },
+            { id: 3, name: "皇后", img: imgBase + "MAJOR_3.jpg" },
+            { id: 4, name: "皇帝", img: imgBase + "MAJOR_4.jpg" },
+            { id: 5, name: "教皇", img: imgBase + "MAJOR_5.jpg" },
+            { id: 6, name: "戀人", img: imgBase + "MAJOR_6.jpg" },
+            { id: 7, name: "戰車", img: imgBase + "MAJOR_7.jpg" },
+            { id: 8, name: "力量", img: imgBase + "MAJOR_8.jpg" },
+            { id: 9, name: "隱士", img: imgBase + "MAJOR_9.jpg" },
+            { id: 10, name: "命運之輪", img: imgBase + "MAJOR_10.jpg" },
+            { id: 11, name: "正義", img: imgBase + "MAJOR_11.jpg" },
+            { id: 12, name: "倒吊人", img: imgBase + "MAJOR_12.jpg" },
+            { id: 13, name: "死神", img: imgBase + "MAJOR_13.jpg" },
+            { id: 14, name: "節制", img: imgBase + "MAJOR_14.jpg" },
+            { id: 15, name: "惡魔", img: imgBase + "MAJOR_15.jpg" },
+            { id: 16, name: "高塔", img: imgBase + "MAJOR_16.jpg" },
+            { id: 17, name: "星星", img: imgBase + "MAJOR_17.jpg" },
+            { id: 18, name: "月亮", img: imgBase + "MAJOR_18.jpg" },
+            { id: 19, name: "太陽", img: imgBase + "MAJOR_19.jpg" },
+            { id: 20, name: "審判", img: imgBase + "MAJOR_20.jpg" },
+            { id: 21, name: "世界", img: imgBase + "MAJOR_21.jpg" },
+            
+            // 權杖組 (Wands01 - Wands10, Wands_PAGE, Wands_KNIGHT, Wands_QUEEN, Wands_KING)
+            { id: 22, name: "權杖一", img: imgBase + "Wands01.jpg" },
+            { id: 23, name: "權杖二", img: imgBase + "Wands02.jpg" },
+            { id: 24, name: "權杖三", img: imgBase + "Wands03.jpg" },
+            { id: 25, name: "權杖四", img: imgBase + "Wands04.jpg" },
+            { id: 26, name: "權杖五", img: imgBase + "Wands05.jpg" },
+            { id: 27, name: "權杖六", img: imgBase + "Wands06.jpg" },
+            { id: 28, name: "權杖七", img: imgBase + "Wands07.jpg" },
+            { id: 29, name: "權杖八", img: imgBase + "Wands08.jpg" },
+            { id: 30, name: "權杖九", img: imgBase + "Wands09.jpg" },
+            { id: 31, name: "權杖十", img: imgBase + "Wands10.jpg" },
+            { id: 32, name: "權杖隨從", img: imgBase + "Wands_PAGE.jpg" },
+            { id: 33, name: "權杖騎士", img: imgBase + "Wands_KNIGHT.jpg" },
+            { id: 34, name: "權杖皇后", img: imgBase + "Wands_QUEEN.jpg" },
+            { id: 35, name: "權杖國王", img: imgBase + "Wands_KING.jpg" },
+
+            // 聖杯組 (Cups01 - Cups10, Cups_PAGE, Cups_KNIGHT, Cups_QUEEN, Cups_KING)
+            { id: 36, name: "聖杯一", img: imgBase + "Cups01.jpg" },
+            { id: 37, name: "聖杯二", img: imgBase + "Cups02.jpg" },
+            { id: 38, name: "聖杯三", img: imgBase + "Cups03.jpg" },
+            { id: 39, name: "聖杯四", img: imgBase + "Cups04.jpg" },
+            { id: 40, name: "聖杯五", img: imgBase + "Cups05.jpg" },
+            { id: 41, name: "聖杯六", img: imgBase + "Cups06.jpg" },
+            { id: 42, name: "聖杯七", img: imgBase + "Cups07.jpg" },
+            { id: 43, name: "聖杯八", img: imgBase + "Cups08.jpg" },
+            { id: 44, name: "聖杯九", img: imgBase + "Cups09.jpg" },
+            { id: 45, name: "聖杯十", img: imgBase + "Cups10.jpg" },
+            { id: 46, name: "聖杯隨從", img: imgBase + "Cups_PAGE.jpg" },
+            { id: 47, name: "聖杯騎士", img: imgBase + "Cups_KNIGHT.jpg" },
+            { id: 48, name: "聖杯皇后", img: imgBase + "Cups_QUEEN.jpg" },
+            { id: 49, name: "聖杯國王", img: imgBase + "Cups_KING.jpg" },
+
+            // 寶劍組 (Swords01 - Swords10, Swords_PAGE, Swords_KNIGHT, Swords_QUEEN, Swords_KING)
+            { id: 50, name: "寶劍一", img: imgBase + "Swords01.jpg" },
+            { id: 51, name: "寶劍二", img: imgBase + "Swords02.jpg" },
+            { id: 52, name: "寶劍三", img: imgBase + "Swords03.jpg" },
+            { id: 53, name: "寶劍四", img: imgBase + "Swords04.jpg" },
+            { id: 54, name: "寶劍五", img: imgBase + "Swords05.jpg" },
+            { id: 55, name: "寶劍六", img: imgBase + "Swords06.jpg" },
+            { id: 56, name: "寶劍七", img: imgBase + "Swords07.jpg" },
+            { id: 57, name: "寶劍八", img: imgBase + "Swords08.jpg" },
+            { id: 58, name: "寶劍九", img: imgBase + "Swords09.jpg" },
+            { id: 59, name: "寶劍十", img: imgBase + "Swords10.jpg" },
+            { id: 60, name: "寶劍隨從", img: imgBase + "Swords_PAGE.jpg" },
+            { id: 61, name: "寶劍騎士", img: imgBase + "Swords_KNIGHT.jpg" },
+            { id: 62, name: "寶劍皇后", img: imgBase + "Swords_QUEEN.jpg" },
+            { id: 63, name: "寶劍國王", img: imgBase + "Swords_KING.jpg" },
+
+            // 錢幣組 (Pents01 - Pents10, Pents_PAGE, Pents_KNIGHT, Pents_QUEEN, Pents_KING)
+            { id: 64, name: "錢幣一", img: imgBase + "Pents01.jpg" },
+            { id: 65, name: "錢幣二", img: imgBase + "Pents02.jpg" },
+            { id: 66, name: "錢幣三", img: imgBase + "Pents03.jpg" },
+            { id: 67, name: "錢幣四", img: imgBase + "Pents04.jpg" },
+            { id: 68, name: "錢幣五", img: imgBase + "Pents05.jpg" },
+            { id: 69, name: "錢幣六", img: imgBase + "Pents06.jpg" },
+            { id: 70, name: "錢幣七", img: imgBase + "Pents07.jpg" },
+            { id: 71, name: "錢幣八", img: imgBase + "Pents08.jpg" },
+            { id: 72, name: "錢幣九", img: imgBase + "Pents09.jpg" },
+            { id: 73, name: "錢幣十", img: imgBase + "Pents10.jpg" },
+            { id: 74, name: "錢幣隨從", img: imgBase + "Pents_PAGE.jpg" },
+            { id: 75, name: "錢幣騎士", img: imgBase + "Pents_KNIGHT.jpg" },
+            { id: 76, name: "錢幣皇后", img: imgBase + "Pents_QUEEN.jpg" },
+            { id: 77, name: "錢幣國王", img: imgBase + "Pents_KING.jpg" }
+        ];
+
+        const spreadConfigs = {
+            "1": [{ name: "核心指引", desc: "當下焦點與課題指引" }],
+            "3": [
+                { name: "過去 (Past)", desc: "事件根源與背景影響" },
+                { name: "現在 (Present)", desc: "當前面臨的考驗與現狀" },
+                { name: "未來 (Future)", desc: "順應趨勢的最終走向" }
+            ],
+            "5": [
+                { name: "現狀 (地)", desc: "目前處境與物質實相" },
+                { name: "阻礙 (水)", desc: "面臨的考驗或情感干擾" },
+                { name: "潛意識 (風)", desc: "思維邏輯與核心初衷" },
+                { name: "環境 (火)", desc: "外在行動力與環境影響" },
+                { name: "結果 (靈)", desc: "各元素交織的最終進展" }
+            ],
+            "10": [
+                { name: "1. 當前核心", desc: "問題本身的現狀" },
+                { name: "2. 縱橫阻礙", desc: "外在干涉或阻撓因素" },
+                { name: "3. 潛意識根基", desc: "深層動機或已知成因" },
+                { name: "4. 近期過去", desc: "剛發生且正淡出的影響" },
+                { name: "5. 意識皇冠", desc: "理智目標與最高期望" },
+                { name: "6. 即將來臨", desc: "下一步的短期變化" },
+                { name: "7. 自我心態", desc: "你在問題中的內在力量防線" },
+                { name: "8. 外在環境", desc: "身邊人或周遭環境的看法" },
+                { name: "9. 希望與恐懼", desc: "渴望或害怕發生的核心" },
+                { name: "10. 最終結果", desc: "長期的終極趨勢走向" }
+            ]
+        };
+
+        let shuffledDeck = [];
+        let currentIndexToDraw = 0;
+        let activeSpreadSize = 1;
+
+        const deckArea = document.getElementById("deckArea");
+        const spreadArea = document.getElementById("spreadArea");
+        const spreadSelect = document.getElementById("spreadSelect");
+        const deckCounter = document.getElementById("deckCounter");
+
+        function initSpreadSlots() {
+            spreadArea.innerHTML = "";
+            const slots = spreadConfigs[spreadSelect.value];
+            activeSpreadSize = slots.length;
+            
+            slots.forEach((slot, index) => {
+                const slotHtml = `
+                    <div id="slot-${index}" class="w-40 min-h-[310px] border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center p-3 text-center bg-gray-50/50">
+                        <span class="bg-gray-200 text-gray-600 text-[10px] font-bold px-2 py-0.5 rounded-full mb-3">陣位 ${index + 1}</span>
+                        <div class="text-sm font-bold text-[#7d6428] mb-1">${slot.name}</div>
+                        <div class="text-[11px] text-gray-400 max-w-[130px] leading-tight">${slot.desc}</div>
+                    </div>
+                `;
+                spreadArea.insertAdjacentHTML('beforeend', slotHtml);
+            });
+        }
+
+        function shuffleTarot() {
+            initSpreadSlots();
+
+            let deck = tarotDeckData.map(card => ({
+                ...card,
+                isReversed: Math.random() < 0.5
+            }));
+
+            for (let i = deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [deck[i], deck[j]] = [deck[j], deck[i]];
+            }
+
+            shuffledDeck = deck;
+            currentIndexToDraw = 0;
+            deckCounter.textContent = `剩餘 78 張`;
+
+            deckArea.innerHTML = "";
+            shuffledDeck.forEach((card, index) => {
+                const cardBackHtml = `
+                    <div id="deck-card-${index}" onclick="drawCardToSpread(${index})" class="deck-card flex-shrink-0 w-16 h-28 border border-amber-600/20 rounded-lg cursor-pointer flex items-center justify-center shadow-sm select-none">
+                        <div class="w-full h-full m-1 border border-white/20 rounded flex flex-col justify-between p-1 items-center">
+                            <span class="text-[8px] text-white/30 font-cinzel">✦</span>
+                            <i class="fa-solid fa-compass text-white/40 text-sm"></i>
+                            <span class="text-[8px] text-white/30 font-cinzel">✦</span>
+                        </div>
+                    </div>
+                `;
+                deckArea.insertAdjacentHTML('beforeend', cardBackHtml);
+            });
+        }
+
+        function drawCardToSpread(selectedDeckIndex) {
+            if (shuffledDeck.length === 0) return;
+            
+            if (currentIndexToDraw >= activeSpreadSize) {
+                alert("目前牌陣所需的張數已全數抽滿。若想重新占卜，請點擊右上方重新洗牌。");
+                return;
+            }
+
+            const card = shuffledDeck[selectedDeckIndex];
+            const targetSlot = document.getElementById(`slot-${currentIndexToDraw}`);
+            const clickedDeckCard = document.getElementById(`deck-card-${selectedDeckIndex}`);
+
+            clickedDeckCard.style.opacity = "0.05";
+            clickedDeckCard.style.pointerEvents = "none";
+
+            targetSlot.className = "w-40 min-h-[310px] flex flex-col items-center";
+            targetSlot.innerHTML = `
+                <div class="text-center mb-2 select-none">
+                    <span class="bg-amber-500/10 text-[#7d6428] border border-amber-500/30 text-xs px-3 py-0.5 rounded-full font-bold">
+                        ${spreadConfigs[spreadSelect.value][currentIndexToDraw].name}
+                    </span>
+                </div>
+                
+                <div class="card-container w-40 h-64 cursor-pointer mt-1" onclick="this.querySelector('.card-inner').classList.toggle('flipped')">
+                    <div class="card-inner w-full h-full relative rounded-xl shadow-md">
+                        
+                        <!-- 蓋牌卡背狀態 -->
+                        <div class="card-back absolute inset-0 bg-gradient-to-b from-[#ae914e] to-[#7d6428] border border-amber-600/40 rounded-xl flex flex-col items-center justify-between p-3">
+                            <div class="w-full h-full border border-white/10 rounded-lg flex flex-col items-center justify-center gap-1 select-none">
+                                <i class="fa-solid fa-wand-magic-sparkles text-white/40 text-sm"></i>
+                                <span class="text-[10px] text-white/60 tracking-widest font-medium">點擊翻開</span>
+                            </div>
+                        </div>
+                        
+                        <!-- 翻開正面：完全讀取你自有 GitHub Pages 的穩定圖源，純淨滿版無文字 -->
+                        <div class="card-front absolute inset-0 bg-white border border-[#ae914e] rounded-xl overflow-hidden shadow-xl ${card.isReversed ? 'reversed-card' : ''}">
+                            <img src="${card.img}" alt="${card.name}" class="w-full h-full object-cover select-none pointer-events-none">
+                        </div>
+
+                    </div>
+                </div>
+            `;
+
+            currentIndexToDraw++;
+            deckCounter.textContent = `剩餘 ${78 - currentIndexToDraw} 張`;
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            initSpreadSlots();
+
+            document.getElementById("shuffleBtn").addEventListener("click", shuffleTarot);
+            document.getElementById("resetBtn").addEventListener("click", shuffleTarot);
+            
+            spreadSelect.addEventListener("change", () => {
+                initSpreadSlots();
+                deckArea.innerHTML = `<div class="text-sm text-gray-400 mx-auto py-4 font-medium flex items-center gap-2"><i class="fa-solid fa-hourglass text-[#ae914e]"></i> 牌陣已更改，請點擊「靜心洗牌」重新開啟能量場</div>`;
+                deckCounter.textContent = "尚未洗牌";
+                shuffledDeck = [];
+            });
+        });
+    </script>
+</body>
+</html>
